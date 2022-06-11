@@ -8,14 +8,14 @@
 # In[1]:
 
 
-import pandas as pd
-from bokeh.io import curdoc
-from bokeh.plotting import figure
-from bokeh.models import HoverTool, ColumnDataSource
-from bokeh.models import CategoricalColorMapper
-from bokeh.palettes import Spectral6
-from bokeh.layouts import widgetbox, row, gridplot
-from bokeh.models import Slider, Select
+# import pandas as pd
+# from bokeh.io import curdoc
+# from bokeh.plotting import figure
+# from bokeh.models import HoverTool, ColumnDataSource
+# from bokeh.models import CategoricalColorMapper
+# from bokeh.palettes import Spectral6
+# from bokeh.layouts import widgetbox, row, gridplot
+# from bokeh.models import Slider, Select
 
 
 # In[2]:
