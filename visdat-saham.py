@@ -115,7 +115,7 @@
 # In[5]:
 
 
-bokeh serve --show myapp.py
+bokeh serve --show visdat-saham.py
 
 
 # For more on all things interaction in Bokeh, [**Adding Interactions**](https://docs.bokeh.org/en/latest/docs/user_guide/interaction.html) in the Bokeh User Guide is a great place to start.
