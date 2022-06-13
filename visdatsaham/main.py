@@ -3,9 +3,9 @@ from math import pi
 import pandas as pd
 
 from bokeh.plotting import figure, show
-from bokeh.sampledata.stocks import MSFT
 
-df = pd.DataFrame(MSFT)[:50]
+df = pd.read_csv('visdatsaham/data/MSKY.csv')
+df = pd.DataFrame[:50]
 df["date"] = pd.to_datetime(df["date"])
 
 inc = df.close > df.open
