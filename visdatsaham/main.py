@@ -1,140 +1,170 @@
+# -*- coding: utf-8 -*-
+
+##Interactive bokeh for cross location selection
+
+## Updated with regression line on 29 Apr 18
 import numpy as np
-import datetime as dt
+import pandas as pd
+from bokeh.io import curdoc,show
+from bokeh.layouts import row,column, widgetbox
+from bokeh.models import ColumnDataSource,LabelSet,Div,Paragraph,PointDrawTool,PolyDrawTool,PolyEditTool,PolySelectTool,CustomJS
+from bokeh.models.widgets import Slider, TextInput,Button,CheckboxGroup,CheckboxButtonGroup,RadioGroup,Select,DataTable, TableColumn
+from bokeh.plotting import figure
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
 
-from bokeh.plotting import figure, curdoc
-from bokeh.models import HoverTool, CustomJSHover,TickFormatter
-from bokeh.tile_providers import get_provider, Vendors
-from bokeh.models.widgets import DataTable, TableColumn, HTMLTemplateFormatter, DateFormatter, Slider,DateSlider, DateRangeSlider, RangeSlider
-from bokeh.models.callbacks import CustomJS
-from bokeh.models.tickers import FixedTicker
 
-from data import DataProvider
-import config as cfg
+import scipy.spatial as spatial
 
-TOOLTIP = """
-<div class="plot-tooltip">
-    <div>
-        <span style="font-weight: bold;">Accident_Severity: </span>@Verbal_severity
-    </div>
-    <div>
-        <span style="font-weight: bold;">Time: </span>@datetime{%Y-%m-%d %H:%M:%S}
-    </div>
-    <div>
-        <span style="font-weight: bold;">Number_of_Vehicles: </span>@Number_of_Vehicles
-    </div>    
-    <div>
-        <span style="font-weight: bold;">Number_of_Casualties: </span>@Number_of_Casualties
-    </div>
-    <div>
-        <span style="font-weight: bold;">Nearest Hospital: </span>@closest_hospital_name
-    </div>
-    <div>
-        <span style="font-weight: bold;">Distance to @closest_hospital_name: </span>@closest_hospital_distance km
-    </div>   
-</div>
-"""
+df = pd.read_csv('myapp/data/crosses_updated.csv')
+headers = ["cross_id", "x", "y","pass_end_x", "pass_end_y"]
+crosses = pd.DataFrame(df, columns=headers)
 
-COL_TPL = """
-<%= get_icon(type.toLowerCase()) %> <%= type %>
-"""
 
-data_provider = DataProvider()
+dx=crosses.x
+dy=crosses.y
 
-data_scr = data_provider.data_ds
-[start_date_str, end_date_str] = data_provider.get_boundary_dates()
+rx=[]
+ry=[]
 
-max_casualties = data_provider.get_max_casualties()
+source = ColumnDataSource({
+    'x': [80], 'y': [9], 'color': ['dodgerblue']
+})
 
-fa_formatter =  HTMLTemplateFormatter(template=COL_TPL)
-columns = [TableColumn(field="datetime", default_sort="descending", title="Time",
-                       formatter=DateFormatter(format="%Y-%m-%d %H:%M:%S")),
-           TableColumn(field="Verbal_severity", title="Accident_Severity", width=150),
-           TableColumn(field="Number_of_Casualties", title="Number_of_Casualties", width=150),
-           TableColumn(field="Number_of_Vehicles", title="Number_of_Vehicles", width=150)]
+ix = source.data['x']
+iy = source.data['y']
+points = np.array(crosses[['x','y']])
 
-full_table = DataTable(columns=columns,
-                       source=data_scr,
-                       view=data_provider.data_view,
-                       name="table",
-                       index_position=None)
+t1 = np.vstack((ix, iy)).T
+t2=np.vstack((crosses.x,crosses.y)).T
 
-full_table_force_change = CustomJS(args=dict(source=data_scr), code="""
-    source.change.emit()
+point_tree = spatial.cKDTree(t2)
+
+ax=(point_tree.query_ball_point(t1, 3)).tolist()
+
+cx=crosses.pass_end_x[ax[0]]
+cy=crosses.pass_end_y[ax[0]]
+size=1
+
+source2 = ColumnDataSource({
+    'cx': [cx], 'cy': [cy]
+})
+
+source_reg = ColumnDataSource({
+    'rx': [], 'ry': []
+})
+
+source2 = ColumnDataSource(data=dict(cx=cx,cy=cy))
+source_reg = ColumnDataSource(data=dict(rx=rx,ry=ry))
+
+# Set up plot
+
+plot = figure(plot_height=500, plot_width=700,
+              tools="save",
+              x_range=[0,100], y_range=[0,100],toolbar_location="below")
+plot.image_url(url=["myapp/static/images/base.png"],x=0,y=0,w=100,h=100,anchor="bottom_left")
+
+
+plot.hex('cx','cy',source=source2,size=15,fill_color='#95D7FF',line_color='#584189',line_width=2,alpha=1)
+
+st=plot.scatter('x','y',source=source,size=15,fill_color='orangered',line_color='black',line_width=2)
+
+plot.xgrid.grid_line_color = None
+plot.ygrid.grid_line_color = None
+plot.axis.visible=False
+
+draw_tool = PointDrawTool(renderers=[st])
+draw_tool.add=False
+columns = [
+    #TableColumn(field="x", title="x"),
+   # TableColumn(field="y", title="y")
+]
+
+data_table = DataTable(
+    source=source,
+    #columns=columns,
+    index_position=None,
+    width=800,
+    editable=False,
+)
+
+
+def linear_regression(cx,cy):
+    """Calculate the linear regression and r2 score"""
+    model = LinearRegression()
+    model.fit(cx[:,np.newaxis],cy)
+    #Get the x- and y-values for the best fit line
+    x_plot = np.linspace(50,100)
+    y_plot = model.predict(x_plot[:,np.newaxis])
+    #Calculate the r2 score
+    r2 = r2_score(cy,model.predict(cx[:,np.newaxis]))
+    #Position for the r2 text annotation
+    r2_x = [-cx + 0.1*cx]
+    r2_y = [cx - 0.1*cx]
+    text = ["R^2 = %02f" % r2]
+    return x_plot,y_plot, r2, r2_x, r2_y, text
+
+x_plot, y_plot, r2, r2_x, r2_y, text = linear_regression(cx,cy)
+text_source = ColumnDataSource(dict(x=[52], y=[3], text=text)) #R2 value
+line_source = ColumnDataSource(data=dict(x=x_plot, y=y_plot)) #Regression line
+
+reg_line=plot.line('x', 'y', source = line_source, color = 'black',line_width=0,line_alpha=0,line_cap="round")
+glyph = LabelSet(x="x", y="y", text="text", text_color="white",source=text_source)
+plot.add_layout(glyph)
+
+def on_change_data_source(attr, old, new):
+    ix = source.data['x']
+    iy = source.data['y']
+
+    t1 = np.vstack((ix, iy)).T
+    t2 = np.vstack((crosses.x, crosses.y)).T
+
+    point_tree = spatial.cKDTree(t2)
+
+    ax = (point_tree.query_ball_point(t1, 3)).tolist()
+    cx = crosses.pass_end_x[ax[0]]
+    cy = crosses.pass_end_y[ax[0]]
+    x_plot, y_plot, r2, r2_x, r2_y, text = linear_regression(cx,cy)
+
+
+    text_source.data = dict(x=[52], y=[3], text = text)
+
+    line_source.data = dict(x=x_plot, y=y_plot)
+    source2.data=dict(cx=cx,cy=cy)
+    # plot.scatter('cx','cy',source=source2)
+
+source.on_change('data', on_change_data_source)
+
+checkbox=CheckboxButtonGroup(labels=["Show Regression Plot"],button_type = "danger")
+
+checkbox.callback = CustomJS(args=dict(l0=reg_line,l1=glyph, checkbox=checkbox), code="""
+l0.visible = 0 in checkbox.active;
+l1.visible = 0 in checkbox.active;
+l0.glyph.line_width = 3;
+l0.glyph.line_alpha=1;
+l1.text_color="black";
 """)
-data_scr.js_on_change('data', full_table_force_change)
 
 
-main_map = figure(x_axis_type="mercator", y_axis_type="mercator",
-                     x_axis_location=None, y_axis_location=None,
-                     tools=['wheel_zoom', "pan", "reset", "tap", "save"],
-                     match_aspect=True,
-                     name="main_plot")
-main_map.add_tile(get_provider(Vendors.CARTODBPOSITRON))
-accidents_points = main_map.circle(x="x", y="y", 
-                    radius='Casualties3',
-                    radius_units='screen',
-                    color='color',
-                    alpha=0.5,
-                    source=data_scr, view=data_provider.data_view, legend_label="Accidents", muted_alpha=0)
 
-hospital_points = main_map.asterisk(x="x", y="y", size=5, color="firebrick",
-                    alpha=0.5,
-                    legend_label="Hospitals",
-                    muted_alpha=0,
-                    source=data_provider.data_ds_hospitals, view=data_provider.data_view_hospitals)
+plot.add_tools(draw_tool)
+plot.toolbar.active_tap = draw_tool
+div = Div(text="""<b><h>WHERE DO TEAMS CROSS?</b></h></br></br>Interactive tool to get cross end locations based on user input. The tool uses <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.cKDTree.htmlL">cKDTree</a> 
+to calculate the nearest cross start locations and plots the corresponding end locations<br></br>
+<br>Created by <b><a href="https://twitter.com/Samirak93">Samira Kumar</a></b> using bokeh</br>""",
+width=550, height=110)
 
-hover = HoverTool(tooltips=TOOLTIP, formatters={'datetime': 'datetime'})
-main_map.add_tools(hover)
-main_map.legend.location = "top_left"
-main_map.legend.click_policy="mute"
-
-
-stats_plot = figure(x_range=data_provider.dispatch_types, plot_height=400, plot_width=400,
-                    tools=["save"],
-                    name="stats_plot")
-stats_plot.vbar(x="Accident_Severity", top="counts", width=0.9, source=data_provider.type_stats_ds,color= "color")
-#stats_plot.xaxis[0].ticker=FixedTicker(
- #       ticks=[data_provider.Severitymap[sevirty] for sevirty in data_provider.type_stats_ds['Accident_Severity']])
-
-stats_plot.xaxis.major_label_orientation = np.pi/2
-
-
-date_slider =  DateRangeSlider(start=start_date_str, end=end_date_str,
-                value=(dt.datetime.strptime(start_date_str, '%d/%m/%Y').date(),dt.datetime.strptime(start_date_str, '%d/%m/%Y').date()), 
-                step=1,name="date_slider", title="Days", callback_policy='mouseup')
-
-casualties_slider = RangeSlider(start=0, end=max_casualties,
-                value=(0,max_casualties), 
-                step=1,name="casualties_slider", title="Casualties", callback_policy='mouseup')
+div_help = Div(text="""<b><h>INSTRUCTIONS</b></h></br></br>Click on the below icon, in the bottom of the viz, to enable the option to drag the red circle.<br></br>
+<img src="https://bokeh.pydata.org/en/latest/_images/PointDraw.png" alt="Point Draw Tool">
+<br></br> 
+The crosses, which have started, from within 3 units of the red circle are collected and their corresponding end locations are plotted in blue 
+<br><b><a href="https://samirak93.github.io/analytics/projects/proj-1.html">Blog Post</a></br>""",
+width=400, height=100)
 
 
 
 
-def update_stats():
-    stats_plot.x_range.factors = data_provider.dispatch_types
+layout=(column(div,checkbox,row(plot,column(div_help)),data_table))
+curdoc().add_root(layout)
+curdoc().title = "Where do teams cross?"
 
-
-def update():
-    """Periodic callback."""
-    data_provider.fetch_data()
-    update_stats()
-
-
-def update_date(attr, old, new):
-    if new != old:
-        data_provider.set_date(new)
-        update_stats()
-
-def update_casualties(attr, old, new):
-    if new != old:
-        data_provider.set_casualties(new)
-        update_stats()
-
-date_slider.on_change("value_throttled", update_date)
-casualties_slider.on_change("value_throttled", update_casualties)
-curdoc().add_root(main_map)
-curdoc().add_root(full_table)
-curdoc().add_root(stats_plot)
-curdoc().add_root(date_slider)
-curdoc().add_root(casualties_slider)
-#curdoc().add_periodic_callback(update, cfg.UPDATE_INTERVAL)
