@@ -16,7 +16,7 @@ from sklearn.metrics import r2_score
 
 import scipy.spatial as spatial
 
-df = pd.read_csv('myapp/data/crosses_updated.csv')
+df = pd.read_csv('visdatsaham/data/crosses_updated.csv')
 headers = ["cross_id", "x", "y","pass_end_x", "pass_end_y"]
 crosses = pd.DataFrame(df, columns=headers)
 
@@ -62,7 +62,7 @@ source_reg = ColumnDataSource(data=dict(rx=rx,ry=ry))
 plot = figure(plot_height=500, plot_width=700,
               tools="save",
               x_range=[0,100], y_range=[0,100],toolbar_location="below")
-plot.image_url(url=["myapp/static/images/base.png"],x=0,y=0,w=100,h=100,anchor="bottom_left")
+plot.image_url(url=["visdatsaham/static/images/base.png"],x=0,y=0,w=100,h=100,anchor="bottom_left")
 
 
 plot.hex('cx','cy',source=source2,size=15,fill_color='#95D7FF',line_color='#584189',line_width=2,alpha=1)
