@@ -24,7 +24,7 @@ class DataProvider(object):
 
     def __init__(self):
         
-        self.df_acc = pd.read_csv('visdat-heroku/data/accidents_2005_5000lines.csv',usecols=DataProvider.RAW_COLS)
+        self.df_acc = pd.read_csv('visdatsaham/data/accidents_2005_5000lines.csv',usecols=DataProvider.RAW_COLS)
         self.df_acc.loc[:, 'dt'] = self.df_acc.Date.str.cat(self.df_acc.Time, sep=' ', na_rep='00:00')
         self.df_acc.loc[:, 'datetime'] = pd.to_datetime(self.df_acc.dt, dayfirst=True) #dayfirst -> DD/MM/YY, default is MM/DD/YY
 
@@ -40,7 +40,7 @@ class DataProvider(object):
         self.COLS.append('Verbal_severity')
 
         self.hospitals_df=pd.DataFrame(columns=np.arange(0,22))
-        with open('visdat-heroku/data/UK_Hospital.csv', "r", encoding="cp1252") as f:
+        with open('visdatsaham/data/UK_Hospital.csv', "r", encoding="cp1252") as f:
             for line in f:
                 x = np.asarray(line.split('¬'))
                 df2 = pd.DataFrame(np.expand_dims(x,axis=1).T)
