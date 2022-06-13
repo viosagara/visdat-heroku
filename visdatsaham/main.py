@@ -1,8 +1,6 @@
 from math import pi
 
 import pandas as pd
-import bokeh.sampledata
-bokeh.sampledata.download()
 
 from bokeh.plotting import figure, show
 from bokeh.sampledata.stocks import MSFT
