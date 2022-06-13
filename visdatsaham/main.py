@@ -4,8 +4,7 @@ import pandas as pd
 
 from bokeh.plotting import figure, show
 
-fd = pd.read_csv('visdatsaham/data/MSKY.csv')
-df = fd.pd.DataFrame([:50])
+df = pd.read_csv('visdatsaham/data/MSKY.csv', [:50])
 df["date"] = pd.to_datetime(df["date"])
 
 inc = df.close > df.open
